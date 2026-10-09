@@ -1,0 +1,72 @@
+name: Optimize local portfolio images
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "index.html"
+      - ".github/workflows/optimize-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare image directory
+        run: mkdir -p assets/images/projects
+
+      - name: Download source photos
+        run: |
+          set -euxo pipefail
+          curl -fsSL --retry 5 --retry-delay 2 -o /tmp/tunis.jpg "https://commons.wikimedia.org/wiki/Special:Redirect/file/MedinaTunis.jpg?width=640"
+          curl -fsSL --retry 5 --retry-delay 2 -o /tmp/djerba.jpg "https://commons.wikimedia.org/wiki/Special:Redirect/file/Plage_de_djerba.jpg?width=640"
+          curl -fsSL --retry 5 --retry-delay 2 -o /tmp/tozeur.jpg "https://commons.wikimedia.org/wiki/Special:Redirect/file/Tozeur_Tunisia.jpg?width=640"
+          curl -fsSL --retry 5 --retry-delay 2 -o /tmp/hammamet.jpg "https://commons.wikimedia.org/wiki/Special:Redirect/file/Hammamet_Tunisia.jpg?width=640"
+          curl -fsSL --retry 5 --retry-delay 2 -o /tmp/douz.jpg "https://commons.wikimedia.org/wiki/Special:Redirect/file/Douz_Tunisia.jpg?width=640"
+          curl -fsSL --retry 5 --retry-delay 2 -o /tmp/sidi-bou-said.jpg "https://commons.wikimedia.org/wiki/Special:Redirect/file/Sidi_bou_said%2C_tunis.jpg?width=640"
+
+      - name: Install WebP tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webp imagemagick
+
+      - name: Convert to optimized WebP
+        run: |
+          set -euxo pipefail
+          magick /tmp/tunis.jpg -strip -resize "1280x1280>" -quality 82 assets/images/projects/tunis.webp
+          magick /tmp/djerba.jpg -strip -resize "1280x1280>" -quality 82 assets/images/projects/djerba.webp
+          magick /tmp/tozeur.jpg -strip -resize "1280x1280>" -quality 82 assets/images/projects/tozeur.webp
+          magick /tmp/hammamet.jpg -strip -resize "1280x1280>" -quality 82 assets/images/projects/hammamet.webp
+          magick /tmp/douz.jpg -strip -resize "1280x1280>" -quality 82 assets/images/projects/douz.webp
+          magick /tmp/sidi-bou-said.jpg -strip -resize "1280x1280>" -quality 82 assets/images/projects/sidi-bou-said.webp
+
+      - name: Verify local assets
+        run: |
+          set -euxo pipefail
+          test "$(find assets/images/projects -maxdepth 1 -type f -name '*.webp' | wc -l)" -eq 6
+          for f in assets/images/projects/*.webp; do
+            test -s "$f"
+            file "$f"
+          done
+          du -h assets/images/projects/*
+
+      - name: Commit optimized assets
+        run: |
+          set -euxo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/images/projects/*.webp
+          if git diff --cached --quiet; then
+            echo "No image changes to commit."
+          else
+            git commit -m "perf: add optimized local project images"
+            git push origin HEAD:master
+          fi

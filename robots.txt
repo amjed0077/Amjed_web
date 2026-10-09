@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://waelsouabni.github.io/amjed-ben-chouikha-portfolio/sitemap.xml
